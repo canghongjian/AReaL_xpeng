@@ -11,6 +11,7 @@ from areal import PPOTrainer
 from areal.api.cli_args import GRPOConfig, load_expr_config
 from areal.utils.hf_utils import load_hf_tokenizer
 from fuyao_examples.dataset.dapo_math import get_dapo_math_rl_dataset
+from fuyao_examples.tracking_patch import apply_tracking_patch
 
 
 def main(args):
@@ -28,8 +29,11 @@ def main(args):
         tokenizer=tokenizer,
     )
 
+    # Apply DeepInsight metric mapping before training
+    apply_tracking_patch()
+
     workflow_kwargs = dict(
-        reward_fn="areal.reward.gsm8k.gsm8k_reward_fn",
+        reward_fn="fuyao_examples.reward.math_reward_fn",
         gconfig=config.gconfig,
         tokenizer=config.tokenizer_path,
         enable_thinking=False,

@@ -15,6 +15,7 @@ from areal.api.cli_args import load_expr_config
 from areal.utils.hf_utils import load_hf_tokenizer
 
 from fuyao_examples.configs import AgenticConfig
+from fuyao_examples.tracking_patch import apply_tracking_patch
 
 
 def load_dapo_math_dataset(path: str, split: str = "train"):
@@ -66,6 +67,8 @@ def main(args):
     )
     eval_workflow_kwargs = workflow_kwargs.copy()
     eval_workflow_kwargs["gconfig"] = config.gconfig.new(temperature=0.6)
+
+    apply_tracking_patch()
 
     with PPOTrainer(config, train_dataset, valid_dataset) as trainer:
         trainer.train(

@@ -1,12 +1,15 @@
-"""DeepInsight SwanLab metric mapping for AReaL.
+"""DeepInsight SwanLab metric mapping for AReaL — external monkey-patch.
 
 Adds renamed metrics (deepinsight_infra/*, deepinsight_algorithm/*) to stats
 before they are committed to SwanLab/WandB, matching the ROLL tracking convention.
 
 Usage:
-    In stats_logger.py commit(), call apply_metric_mapping(item) before logging.
-    Or monkey-patch StatsLogger at startup.
+    Call apply_tracking_patch() before trainer.train() in your train script.
 """
+
+from areal.utils import logging
+
+logger = logging.getLogger("TrackingPatch")
 
 # AReaL metric name → DeepInsight metric name
 DEEPINSIGHT_METRIC_MAPPING: dict[str, str] = {
@@ -27,13 +30,26 @@ DEEPINSIGHT_METRIC_MAPPING: dict[str, str] = {
 }
 
 
-def apply_metric_mapping(values: dict) -> dict:
-    """Add DeepInsight-renamed copies of metrics to values dict (in-place).
-
-    Does not remove originals — both AReaL and DeepInsight names are logged.
-    """
+def _add_deepinsight_metrics(values: dict) -> dict:
     for original_key in list(values.keys()):
         if original_key in DEEPINSIGHT_METRIC_MAPPING:
-            new_key = DEEPINSIGHT_METRIC_MAPPING[original_key]
-            values[new_key] = values[original_key]
+            values[DEEPINSIGHT_METRIC_MAPPING[original_key]] = values[original_key]
     return values
+
+
+def apply_tracking_patch():
+    """Monkey-patch StatsLogger.commit to add DeepInsight metric mapping."""
+    from areal.utils.stats_logger import StatsLogger
+
+    original_commit = StatsLogger.commit
+
+    def patched_commit(self, *args, **kwargs):
+        # Intercept the data before committing
+        if args and isinstance(args[0], list):
+            for item in args[0]:
+                if isinstance(item, dict):
+                    _add_deepinsight_metrics(item)
+        return original_commit(self, *args, **kwargs)
+
+    StatsLogger.commit = patched_commit
+    logger.info("Applied DeepInsight metric mapping patch to StatsLogger")
