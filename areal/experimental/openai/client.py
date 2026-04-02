@@ -226,6 +226,7 @@ class AsyncCompletionsWithReward(BaseAsyncCompletions):
         reasoning_parser: str,
         engine_max_tokens: int | None = None,
         chat_template_type: str = "hf",
+        default_chat_template_kwargs: dict | None = None,
     ):
         super().__init__(client)
         self.engine = engine
@@ -235,6 +236,7 @@ class AsyncCompletionsWithReward(BaseAsyncCompletions):
         self._cache = cache
         self.engine_max_tokens = engine_max_tokens
         self.chat_template_type = chat_template_type
+        self.default_chat_template_kwargs = default_chat_template_kwargs or {}
 
     def _build_chat_completion(
         self,
@@ -403,7 +405,10 @@ class AsyncCompletionsWithReward(BaseAsyncCompletions):
                 tools=tools_list,
                 add_generation_prompt=True,
                 tokenize=True,
-                **extra_body.get("chat_template_kwargs", {}),
+                **{
+                    **self.default_chat_template_kwargs,
+                    **extra_body.get("chat_template_kwargs", {}),
+                },
             )
         elif self.chat_template_type == "concat":
             messages_list = (
@@ -702,6 +707,7 @@ class AsyncResponsesWithReward(BaseAsyncResponses):
         reasoning_parser: str,
         engine_max_tokens: int | None = None,
         chat_template_type: str = "hf",
+        default_chat_template_kwargs: dict | None = None,
     ):
         super().__init__(client)
         self.engine = engine
@@ -711,6 +717,7 @@ class AsyncResponsesWithReward(BaseAsyncResponses):
         self._cache = cache
         self.engine_max_tokens = engine_max_tokens
         self.chat_template_type = chat_template_type
+        self.default_chat_template_kwargs = default_chat_template_kwargs or {}
 
     async def create(
         self,
@@ -850,7 +857,10 @@ class AsyncResponsesWithReward(BaseAsyncResponses):
                 tools=tools_list,
                 add_generation_prompt=True,
                 tokenize=True,
-                **extra_body.get("chat_template_kwargs", {}),
+                **{
+                    **self.default_chat_template_kwargs,
+                    **extra_body.get("chat_template_kwargs", {}),
+                },
             )
         elif self.chat_template_type == "concat":
             prompt_token_ids = concat_prompt_token_ids_with_parent(
@@ -1045,6 +1055,7 @@ class ArealOpenAI(AsyncOpenAI):
         reasoning_parser: str = "qwen3",
         engine_max_tokens: int | None = None,
         chat_template_type: str = "hf",
+        default_chat_template_kwargs: dict | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1052,6 +1063,7 @@ class ArealOpenAI(AsyncOpenAI):
         self.tokenizer = tokenizer
         self.tool_call_parser = tool_call_parser
         self.reasoning_parser = reasoning_parser
+        self.default_chat_template_kwargs = default_chat_template_kwargs or {}
 
         # Use an ordered dict to maintain insertion order of completions/responses
         self._cache: InteractionCache = InteractionCache()
@@ -1066,6 +1078,7 @@ class ArealOpenAI(AsyncOpenAI):
             reasoning_parser=self.reasoning_parser,
             engine_max_tokens=engine_max_tokens,
             chat_template_type=chat_template_type,
+            default_chat_template_kwargs=self.default_chat_template_kwargs,
         )
 
         # Override chat.completions with our extended implementation
@@ -1078,6 +1091,7 @@ class ArealOpenAI(AsyncOpenAI):
             reasoning_parser=self.reasoning_parser,
             engine_max_tokens=engine_max_tokens,
             chat_template_type=chat_template_type,
+            default_chat_template_kwargs=self.default_chat_template_kwargs,
         )
 
     def get_interaction(self, id: str) -> InteractionWithTokenLogpReward | None:

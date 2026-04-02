@@ -55,12 +55,21 @@ def find_free_ports(
     Raises:
         ValueError: If unable to find requested number of free ports
     """
+    if count < 0:
+        raise ValueError(f"count must be non-negative, got {count}")
+    if count == 0:
+        return []
+
     if exclude_ports is None:
         exclude_ports = set()
 
     min_port, max_port = port_range
+    if min_port > max_port:
+        raise ValueError(f"Invalid port range: {port_range}")
+
+    # Only ports inside the search range reduce effective capacity.
+    exclude_ports = {port for port in exclude_ports if min_port <= port <= max_port}
     free_ports = []
-    attempted_ports = set()
 
     # Calculate available port range
     available_range = max_port - min_port + 1 - len(exclude_ports)
@@ -71,32 +80,26 @@ def find_free_ports(
             f"Only {available_range} ports available."
         )
 
-    max_attempts = count * 10  # Reasonable limit to avoid infinite loops
-    attempts = 0
+    # Use a random scan start to reduce contention across concurrent allocators,
+    # then scan the whole range sequentially to avoid random-attempt failures.
+    port_count = max_port - min_port + 1
+    start_port = min_port + random.randrange(port_count)
+    scanned_ports = 0
 
-    while len(free_ports) < count and attempts < max_attempts:
-        # Generate random port within range
-        port = random.randint(min_port, max_port)
-
-        # Skip if port already attempted or excluded
-        if port in attempted_ports or port in exclude_ports:
-            attempts += 1
+    for offset in range(port_count):
+        port = min_port + ((start_port - min_port + offset) % port_count)
+        if port in exclude_ports:
             continue
-
-        attempted_ports.add(port)
-
+        scanned_ports += 1
         if is_port_free(port):
             free_ports.append(port)
+            if len(free_ports) == count:
+                return sorted(free_ports)
 
-        attempts += 1
-
-    if len(free_ports) < count:
-        raise ValueError(
-            f"Could only find {len(free_ports)} free ports "
-            f"out of {count} requested after {max_attempts} attempts"
-        )
-
-    return sorted(free_ports)
+    raise ValueError(
+        f"Could only find {len(free_ports)} free ports "
+        f"out of {count} requested after scanning {scanned_ports} candidate ports"
+    )
 
 
 def is_port_free(port: int) -> bool:

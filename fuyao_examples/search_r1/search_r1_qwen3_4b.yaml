@@ -12,7 +12,7 @@
 #       --run-type search_r1 \
 #       --config fuyao_examples/search_r1/search_r1_qwen3_4b.yaml
 
-experiment_name: ${oc.env:BIFROST_JOB_NAME,default}-qwen3-4b-search-r1-${oc.env:AREAL_RUN_TIMESTAMP,0}
+experiment_name: ${oc.env:BIFROST_JOB_NAME,default}-qwen3-4b-search-r1
 trial_name: trial0
 
 seed: 42
@@ -52,6 +52,12 @@ rollout:
   fileroot: ${cluster.fileroot}
   tokenizer_path: ${tokenizer_path}
   dump_to_file: true
+  openai:
+    mode: inline
+    export_style: individual
+    turn_discount: 1.0
+    chat_template_kwargs:
+      enable_thinking: false
 
 # ── Generation Config ──
 gconfig:
@@ -62,8 +68,6 @@ gconfig:
   temperature: 0.99
   top_p: 0.99
   top_k: 100
-  stop:
-    - "</search>"
 
 # ── Actor (Training) — Megatron TP1/PP1 ──
 actor:
@@ -185,7 +189,7 @@ evaluator:
   trial_name: ${trial_name}
   fileroot: ${cluster.fileroot}
   freq_epochs: 1
-  freq_steps: 10
+  freq_steps: 20
   freq_secs: null
 
 stats_logger:

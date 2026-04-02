@@ -1,4 +1,4 @@
-"""Search R1 Agentic RL training entry point.
+"""Search R1 Agentic RL training entry point (proxy mode).
 
 Usage:
     python fuyao_examples/search_r1/train_search_r1.py \
@@ -10,18 +10,18 @@ import sys
 
 from datasets import load_dataset
 
-from areal import PPOTrainer
-from areal.api.cli_args import load_expr_config
-from areal.utils.hf_utils import load_hf_tokenizer
-
 from fuyao_examples.configs import AgenticConfig
 from fuyao_examples.tracking_patch import apply_tracking_patch
 
+from areal import PPOTrainer
+from areal.api.cli_args import load_expr_config
 
-def load_search_dataset(path: str, question_key: str, answer_key: str, split: str = "train"):
+
+def load_search_dataset(
+    path: str, question_key: str, answer_key: str, split: str = "train"
+):
     """Load a search QA dataset from parquet/json files or HuggingFace."""
     if os.path.isdir(path):
-        # Local directory with parquet/json files
         import glob
 
         parquet_files = glob.glob(os.path.join(path, "*.parquet"))
@@ -42,7 +42,6 @@ def load_search_dataset(path: str, question_key: str, answer_key: str, split: st
         question = sample.get(question_key, "")
         answer = sample.get(answer_key, "")
         result = {"question": question, "golden_answers": answer}
-        # Keep original prompt field (contains full instructions for search)
         if "prompt" in sample and sample["prompt"]:
             result["prompt"] = sample["prompt"]
         return result
@@ -53,9 +52,7 @@ def load_search_dataset(path: str, question_key: str, answer_key: str, split: st
 
 def main(args):
     config, _ = load_expr_config(args, AgenticConfig)
-    tokenizer = load_hf_tokenizer(config.tokenizer_path)
 
-    # Load datasets
     train_dataset = load_search_dataset(
         config.train_dataset.path,
         question_key="question",
@@ -68,7 +65,7 @@ def main(args):
             config.valid_dataset.path,
             question_key=getattr(config, "_val_question_key", "problem"),
             answer_key=getattr(config, "_val_answer_key", "answer"),
-            split="train",
+            split="test",
         )
 
     # Resolve retrieval endpoint
@@ -83,25 +80,28 @@ def main(args):
         )
         sys.exit(1)
 
+    apply_tracking_patch()
+
+    # Agent workflow kwargs
     workflow_kwargs = dict(
-        gconfig=config.gconfig,
-        tokenizer=config.tokenizer_path,
-        retrieval_endpoint=retrieval_endpoint,
+        search_url=retrieval_endpoint,
+        system_prompt=config.system_prompt,
+        input_key=config.input_key,
+        answer_key=config.answer_key,
         max_turns=config.max_turns,
         max_tool_uses=config.max_tool_uses,
-        max_total_tokens=config.max_total_tokens,
-        system_prompt=config.system_prompt,
+        temperature=config.gconfig.temperature,
+        max_completion_tokens=config.gconfig.max_new_tokens,
     )
     eval_workflow_kwargs = workflow_kwargs.copy()
-    eval_workflow_kwargs["gconfig"] = config.gconfig.new(temperature=0.6)
-
-    apply_tracking_patch()
+    eval_workflow_kwargs["temperature"] = 0.6
 
     with PPOTrainer(config, train_dataset, valid_dataset) as trainer:
         trainer.train(
-            workflow="fuyao_examples.search_r1.search_r1_workflow.SearchR1Workflow",
+            # Not a RolloutWorkflow — AReaL auto-wraps in OpenAIProxyWorkflow
+            workflow="fuyao_examples.search_r1.search_r1_agent.SearchR1Agent",
             workflow_kwargs=workflow_kwargs,
-            eval_workflow="fuyao_examples.search_r1.search_r1_workflow.SearchR1Workflow",
+            eval_workflow="fuyao_examples.search_r1.search_r1_agent.SearchR1Agent",
             eval_workflow_kwargs=eval_workflow_kwargs,
         )
 

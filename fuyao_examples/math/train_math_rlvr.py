@@ -7,11 +7,12 @@ Usage:
 
 import sys
 
+from fuyao_examples.dataset.dapo_math import get_dapo_math_rl_dataset
+from fuyao_examples.tracking_patch import apply_tracking_patch
+
 from areal import PPOTrainer
 from areal.api.cli_args import GRPOConfig, load_expr_config
 from areal.utils.hf_utils import load_hf_tokenizer
-from fuyao_examples.dataset.dapo_math import get_dapo_math_rl_dataset
-from fuyao_examples.tracking_patch import apply_tracking_patch
 
 
 def main(args):

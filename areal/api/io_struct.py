@@ -107,9 +107,9 @@ class ModelResponse:
             raise ValueError("tokenizer is None, cannot get output_tokens_without_stop")
         if self.stop_reason not in ["length", "abort"] and self.output_tokens:
             if not self.end_with_stop:
-                raise ValueError(
-                    f"output_tokens does not end with eos or pad token, it ends with {self.output_tokens[-1]}, but stop_reason is {self.stop_reason}"
-                )
+                # Custom stop strings (e.g., "</search>", "</code>") cause stop_reason="stop"
+                # without an EOS/PAD at the end. Return tokens as-is in this case.
+                return self.output_tokens
             pad_or_eos_len = 0
             eos_id = self.tokenizer.eos_token_id
             pad_id = self.tokenizer.pad_token_id

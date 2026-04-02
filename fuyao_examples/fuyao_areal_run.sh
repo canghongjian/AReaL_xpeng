@@ -109,8 +109,6 @@ done
 # ========================== 5. 环境配置 ==========================
 echo "===== Step 2: Configure environment ====="
 
-# 生成时间戳，用于 experiment_name 去重
-export AREAL_RUN_TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 
 # NCCL 配置
 unset NCCL_NET_GDR_LEVEL 2>/dev/null || true

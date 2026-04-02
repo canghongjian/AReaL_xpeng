@@ -1,6 +1,6 @@
 # AReaL YAML 配置说明
 
-![YAML 配置结构](assets/areal_yaml_config_flowchart.png)
+![YAML 配置结构](../assets/areal_yaml_config_flowchart.png)
 
 ## 配置层级
 

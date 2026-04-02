@@ -1,6 +1,6 @@
 # PPOTrainer 训练循环与 Workflow 执行
 
-![Trainer & Workflow](assets/areal_trainer_workflow_flowchart.png)
+![Trainer & Workflow](../assets/areal_trainer_workflow_flowchart.png)
 
 ## 训练主循环
 
@@ -156,3 +156,20 @@ for turn in range(max_turns):
 | `timeperf/rollout` | rollout 耗时 (通常最大) |
 | `timeperf/train_step` | PPO update 耗时 |
 | `timeperf/update_weights` | 权重同步耗时 |
+
+---
+
+## Proxy 模式下的变化
+
+![Trainer with Proxy](../assets/trainer_with_proxy.png)
+
+上面描述的训练主循环（Step 1-8）在 Proxy 模式下**完全不变**。变化只在 Step 1 Rollout 阶段的内部——`arun_episode()` 的实现方式不同：
+
+| 方式 | Step 1 内部 | 返回给 RolloutController |
+|------|-----------|----------------------|
+| **纯 Workflow** | `engine.agenerate()` → 手动构建 tensor dict | `{input_ids, loss_mask, logprobs, rewards}` |
+| **AsyncOpenAI + Proxy Server** | Agent 通过 HTTP 调 Proxy → `proxy_client.export_interactions()` | 同上格式，Proxy 自动构建 |
+
+两种方式最终都产出统一格式的 RTensor，Step 3 以后的流程（recompute logp → advantages → ppo_update → weight sync）完全一致。
+
+**Agentic 场景统一推荐 `AsyncOpenAI` + Proxy Server（subproc 模式）**——标准 OpenAI SDK 零侵入，后续升级到黑盒（online + Gateway）时 Agent 代码不用改。详见 [proxy_system.md](proxy_system.md)。

@@ -10,7 +10,7 @@
 #       --run-type math_rlvr \
 #       --config fuyao_examples/math/qwen3_4b_rlvr.yaml
 
-experiment_name: ${oc.env:BIFROST_JOB_NAME,default}-qwen3-4b-math-rlvr-${oc.env:AREAL_RUN_TIMESTAMP,0}
+experiment_name: ${oc.env:BIFROST_JOB_NAME,default}-qwen3-4b-math-rlvr
 trial_name: trial0
 
 seed: 42
@@ -34,7 +34,7 @@ rollout:
   backend: "sglang:d4p1t1"
   experiment_name: ${experiment_name}
   trial_name: ${trial_name}
-  max_concurrent_rollouts: 128
+  max_concurrent_rollouts: 64
   queue_size: null
   consumer_batch_size: ${train_dataset.batch_size}
   max_head_offpolicyness: 2
@@ -132,7 +132,7 @@ sglang:
   dtype: ${actor.dtype}
   max_running_requests: null
   context_length: 16384
-  mem_fraction_static: 0.8
+  mem_fraction_static: 0.7
 
 # ── Datasets — dapo_math_17k ──
 train_dataset:
@@ -173,7 +173,7 @@ evaluator:
   trial_name: ${trial_name}
   fileroot: ${cluster.fileroot}
   freq_epochs: 1
-  freq_steps: 10
+  freq_steps: 20
   freq_secs: null
 
 stats_logger:

@@ -9,7 +9,7 @@
 #       --run-type code_dapo \
 #       --config fuyao_examples/code_dapo/code_dapo_qwen3_4b.yaml
 
-experiment_name: ${oc.env:BIFROST_JOB_NAME,default}-qwen3-4b-code-dapo-${oc.env:AREAL_RUN_TIMESTAMP,0}
+experiment_name: ${oc.env:BIFROST_JOB_NAME,default}-qwen3-4b-code-dapo
 trial_name: trial0
 
 seed: 42
@@ -20,17 +20,12 @@ tokenizer_path: ${actor.path}
 # ── Agentic Config ──
 sandbox_type: "local"  # "local" or "execd"
 execd_endpoint: ""     # Set via EXECD_ENDPOINT env var for execd mode
-code_timeout: 10
+code_timeout: 5
 max_turns: 10
-max_tool_uses: 5
+max_tool_uses: 1
 max_total_tokens: 8192
 system_prompt: >-
   Please reason step by step, and put your final answer within '\boxed{}', e.g. \boxed{A}.
-  You have the capability to write code to use the code interpreter for calculation.
-  The code will be executed by a sandbox, and the result can be returned to enhance your reasoning process.
-  Each code snippet is wrapped with: <code>...</code>, and should be executable.
-  The code snippets should be complete scripts, including necessary imports.
-  Outputs in the code snippets must explicitly call the print function.
 
 cluster:
   n_nodes: 1
@@ -57,6 +52,12 @@ rollout:
   fileroot: ${cluster.fileroot}
   tokenizer_path: ${tokenizer_path}
   dump_to_file: true
+  openai:
+    mode: inline
+    export_style: individual
+    turn_discount: 1.0
+    chat_template_kwargs:
+      enable_thinking: false
 
 # ── Generation Config ──
 gconfig:
@@ -67,8 +68,6 @@ gconfig:
   temperature: 0.99
   top_p: 0.99
   top_k: 100
-  stop:
-    - "</code>"
 
 # ── Actor (Training) — Megatron TP1/PP1 ──
 actor:

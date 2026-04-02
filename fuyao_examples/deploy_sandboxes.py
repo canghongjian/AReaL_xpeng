@@ -23,12 +23,11 @@ import time
 import urllib.error
 import urllib.request
 from types import SimpleNamespace
-from typing import Optional, Tuple
 
 # ── Fuyao SDK imports ──
 try:
     import fuyao
-    from xbigdata.fuyao.sdkv2.etl import constant, model
+    from xbigdata.fuyao.sdkv2.etl import model
 
     HAS_FUYAO = True
 except ImportError:
@@ -68,7 +67,10 @@ MAX_HEALTH_WAIT = {"search": 1200, "code": 300}
 def init_fuyao():
     """Initialize Fuyao SDK connection."""
     if not HAS_FUYAO:
-        print("ERROR: fuyao SDK not installed. Install with: pip install fuyao", file=sys.stderr)
+        print(
+            "ERROR: fuyao SDK not installed. Install with: pip install fuyao",
+            file=sys.stderr,
+        )
         sys.exit(1)
     user_name = os.getenv("AUTH_USER")
     if not user_name:
@@ -80,7 +82,7 @@ def init_fuyao():
     )
 
 
-def deploy_job(args) -> Optional[str]:
+def deploy_job(args) -> str | None:
     """Deploy a job to Fuyao. Returns job name (run_name)."""
     init_fuyao()
     deploy_run_args = model.DeployRunArgs(
@@ -107,7 +109,7 @@ def deploy_job(args) -> Optional[str]:
         return None
 
 
-def query_job(job_name: str) -> Tuple[Optional[str], Optional[str]]:
+def query_job(job_name: str) -> tuple[str | None, str | None]:
     """Query job status. Returns (state, host_ip)."""
     try:
         run_info = fuyao.etl.get_run_by_name(job_name=job_name)
@@ -115,9 +117,7 @@ def query_job(job_name: str) -> Tuple[Optional[str], Optional[str]]:
         state = fuyao_job.state
         host_ip = None
         if state == "JOB_RUNNING":
-            pod_info = fuyao.etl.search_run_pods(
-                run_name=job_name, site=fuyao_job.site
-            )
+            pod_info = fuyao.etl.search_run_pods(run_name=job_name, site=fuyao_job.site)
             host_ip = pod_info.pods[0].host_ip if pod_info.pods else None
         return state, host_ip
     except Exception as e:
@@ -125,7 +125,7 @@ def query_job(job_name: str) -> Tuple[Optional[str], Optional[str]]:
         return None, None
 
 
-def _make_code_start_cmd() -> Tuple[str, str]:
+def _make_code_start_cmd() -> tuple[str, str]:
     """Build code sandbox start command. Returns (cmd, port_file_path)."""
     ts = int(time.time())
     port_file = f"{SANDBOX_PORTS_DIR}/agentic_code_{ts}.port"
@@ -142,7 +142,7 @@ def _make_code_start_cmd() -> Tuple[str, str]:
     return cmd, port_file
 
 
-def _read_port_file(port_file: Optional[str], default: int) -> int:
+def _read_port_file(port_file: str | None, default: int) -> int:
     """Read actual port from port file (Fuyao may override via MASTER_PORT)."""
     if port_file:
         try:
@@ -153,9 +153,7 @@ def _read_port_file(port_file: Optional[str], default: int) -> int:
     return default
 
 
-def deploy_sandbox(
-    sandbox_type: str, label: str = None
-) -> Tuple[str, Optional[str]]:
+def deploy_sandbox(sandbox_type: str, label: str = None) -> tuple[str, str | None]:
     """Deploy a sandbox. Returns (job_name, port_file_or_None)."""
     port_file = None
     if sandbox_type == "search":
@@ -198,9 +196,7 @@ def deploy_sandbox(
     return run_name, port_file
 
 
-def wait_for_running(
-    job_name: str, timeout: int = 600, sandbox_type: str = ""
-) -> str:
+def wait_for_running(job_name: str, timeout: int = 600, sandbox_type: str = "") -> str:
     """Poll until job is JOB_RUNNING. Returns host_ip."""
     print(f"[wait] Waiting for {job_name} (timeout={timeout}s)...")
     start = time.time()
@@ -231,7 +227,7 @@ def wait_for_health(
             req = urllib.request.Request(url, method="GET")
             with urllib.request.urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
-                    print(f"[health] OK (elapsed {int(time.time()-start)}s)")
+                    print(f"[health] OK (elapsed {int(time.time() - start)}s)")
                     return True
         except (urllib.error.URLError, OSError, TimeoutError):
             pass
@@ -250,7 +246,7 @@ def wait_for_tcp(host_ip: str, port: int, timeout: int = 300) -> bool:
             s.settimeout(3)
             s.connect((host_ip, port))
             s.close()
-            print(f"[tcp] OK (elapsed {int(time.time()-start)}s)")
+            print(f"[tcp] OK (elapsed {int(time.time() - start)}s)")
             return True
         except (OSError, TimeoutError):
             pass
@@ -260,7 +256,9 @@ def wait_for_tcp(host_ip: str, port: int, timeout: int = 300) -> bool:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Deploy Fuyao sandbox containers for AReaL")
+    parser = argparse.ArgumentParser(
+        description="Deploy Fuyao sandbox containers for AReaL"
+    )
     parser.add_argument(
         "--sandbox",
         nargs="+",
@@ -268,7 +266,9 @@ def main():
         required=True,
         help="Sandbox type(s) to deploy",
     )
-    parser.add_argument("--export", action="store_true", help="Print shell export statements")
+    parser.add_argument(
+        "--export", action="store_true", help="Print shell export statements"
+    )
     parser.add_argument("--no-wait", action="store_true", help="Deploy without waiting")
     args = parser.parse_args()
 

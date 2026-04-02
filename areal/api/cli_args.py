@@ -1644,6 +1644,15 @@ class OpenAIProxyConfig:
             ),
         },
     )
+    chat_template_kwargs: dict[str, Any] | None = field(
+        default=None,
+        metadata={
+            "help": (
+                "Global kwargs passed to tokenizer.apply_chat_template() for every request. "
+                "E.g., {enable_thinking: false} to skip Qwen3 thinking mode."
+            ),
+        },
+    )
 
     def __post_init__(self):
         if not self.admin_api_key or not self.admin_api_key.strip():

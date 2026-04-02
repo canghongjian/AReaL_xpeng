@@ -14,17 +14,17 @@ import os
 import re
 import subprocess
 import tempfile
-import time
 import uuid
 
 import httpx
 import torch
 from transformers import PreTrainedTokenizerFast
 
+from fuyao_examples.reward import math_verify_with_fallback
+
 from areal import workflow_context
 from areal.api import InferenceEngine, ModelRequest, ModelResponse, RolloutWorkflow
 from areal.api.cli_args import GenerationHyperparameters
-from areal.reward import get_math_verify_worker
 from areal.utils import logging, stats_tracker
 
 logger = logging.getLogger("CodeExecWorkflow")
@@ -45,7 +45,7 @@ def _extract_code(text: str) -> str | None:
     # Handle unclosed <code> tag (SGLang/vLLM stop_strings strips the closing tag)
     open_idx = text.rfind("<code>")
     if open_idx != -1:
-        code = text[open_idx + len("<code>"):]
+        code = text[open_idx + len("<code>") :]
         return code.strip() if code.strip() else None
     return None
 
@@ -118,7 +118,11 @@ class CodeExecWorkflow(RolloutWorkflow):
                         # Keep last few lines of error
                         error_lines = error.strip().split("\n")
                         error = "\n".join(error_lines[-5:])
-                    output = output + "\n[ERROR]\n" + error if output else "[ERROR]\n" + error
+                    output = (
+                        output + "\n[ERROR]\n" + error
+                        if output
+                        else "[ERROR]\n" + error
+                    )
             except subprocess.TimeoutExpired:
                 output = f"[ERROR] Code execution timed out after {self.code_timeout}s"
             except Exception as e:
@@ -126,10 +130,15 @@ class CodeExecWorkflow(RolloutWorkflow):
 
         # Truncate long output
         if len(output) > MAX_OUTPUT_CHARS:
-            output = output[:MAX_OUTPUT_CHARS] + f"\n... (truncated to {MAX_OUTPUT_CHARS} chars)"
+            output = (
+                output[:MAX_OUTPUT_CHARS]
+                + f"\n... (truncated to {MAX_OUTPUT_CHARS} chars)"
+            )
         return output.strip()
 
-    async def _execute_code_execd(self, code: str, http_client: httpx.AsyncClient) -> str:
+    async def _execute_code_execd(
+        self, code: str, http_client: httpx.AsyncClient
+    ) -> str:
         """Execute Python code via remote execd endpoint."""
         try:
             resp = await http_client.post(
@@ -146,7 +155,9 @@ class CodeExecWorkflow(RolloutWorkflow):
             output = output[:MAX_OUTPUT_CHARS] + "\n... (truncated)"
         return output.strip()
 
-    async def _execute_code(self, code: str, http_client: httpx.AsyncClient | None) -> str:
+    async def _execute_code(
+        self, code: str, http_client: httpx.AsyncClient | None
+    ) -> str:
         """Execute code using configured sandbox type."""
         if self.sandbox_type == "execd" and self.execd_endpoint and http_client:
             return await self._execute_code_execd(code, http_client)
@@ -192,7 +203,10 @@ class CodeExecWorkflow(RolloutWorkflow):
             num_turns = turn + 1
 
             input_ids = self.tokenizer.apply_chat_template(
-                messages, tokenize=True, add_generation_prompt=True
+                messages,
+                tokenize=True,
+                add_generation_prompt=True,
+                enable_thinking=False,
             )
 
             if len(input_ids) >= self.max_total_tokens:
@@ -207,7 +221,9 @@ class CodeExecWorkflow(RolloutWorkflow):
             )
 
             resp: ModelResponse = await engine.agenerate(req)
-            output_text = self.tokenizer.decode(resp.output_tokens, skip_special_tokens=False)
+            output_text = self.tokenizer.decode(
+                resp.output_tokens, skip_special_tokens=False
+            )
             accumulated_text += output_text
 
             # Record tokens
@@ -235,8 +251,7 @@ class CodeExecWorkflow(RolloutWorkflow):
             # Check for \boxed{} answer
             boxed_answer = _extract_boxed_answer(accumulated_text)
             if boxed_answer is not None:
-                worker = get_math_verify_worker()
-                final_reward = worker.verify(accumulated_text, ground_truth)
+                final_reward = math_verify_with_fallback(accumulated_text, ground_truth)
                 break
 
             # Check for <code> tag
@@ -249,24 +264,32 @@ class CodeExecWorkflow(RolloutWorkflow):
                     tool_use_success += 1
 
                 result_text = f"\n<output>\n{exec_output}\n</output>\n"
-                result_tokens = self.tokenizer.encode(result_text, add_special_tokens=False)
+                result_tokens = self.tokenizer.encode(
+                    result_text, add_special_tokens=False
+                )
 
                 all_input_ids.extend(result_tokens)
                 all_logprobs.extend([0.0] * len(result_tokens))
                 all_loss_mask.extend([0] * len(result_tokens))
                 all_versions.extend([-1] * len(result_tokens))
 
-                messages.append({"role": "assistant", "content": output_text + result_text})
-                messages.append({
-                    "role": "user",
-                    "content": "Continue. Put your final answer in \\boxed{}.",
-                })
+                messages.append(
+                    {"role": "assistant", "content": output_text + result_text}
+                )
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Continue. Put your final answer in \\boxed{}.",
+                    }
+                )
             else:
                 messages.append({"role": "assistant", "content": output_text})
-                messages.append({
-                    "role": "user",
-                    "content": "Please provide your final answer in \\boxed{}.",
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Please provide your final answer in \\boxed{}.",
+                    }
+                )
 
         stats_tracker.get(workflow_context.stat_scope()).scalar(
             tool_use_count=tool_use_count,

@@ -10,9 +10,9 @@ from math_verify.parser import parse as math_verify_parse
 from areal.utils import logging
 
 logger = logging.getLogger("FuyaoReward")
-
-_THREADED_ENV_ERROR = (
-    "Math-Verify 'parse' function doesn't support threaded environment"
+_THREADED_ENV_ERRORS = (
+    "Math-Verify 'parse' function doesn't support threaded environment",
+    "signal only works in main thread",
 )
 
 _GOLD_TARGET = (
@@ -27,8 +27,12 @@ _PRECISION = 6
 
 
 def _verify_without_timeout(response: str, ground_truth: str) -> float:
-    extracted_predictions = math_verify_parse(response, _PRED_TARGET, parsing_timeout=None)
-    extracted_golds = math_verify_parse(ground_truth, _GOLD_TARGET, parsing_timeout=None)
+    extracted_predictions = math_verify_parse(
+        response, _PRED_TARGET, parsing_timeout=None
+    )
+    extracted_golds = math_verify_parse(
+        ground_truth, _GOLD_TARGET, parsing_timeout=None
+    )
     if not extracted_golds or not extracted_predictions:
         return 0.0
     matched = any(
@@ -39,7 +43,21 @@ def _verify_without_timeout(response: str, ground_truth: str) -> float:
     return 1.0 if matched else 0.0
 
 
-def math_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kwargs) -> float:
+def math_verify_with_fallback(response: str, ground_truth: str) -> float:
+    """Verify math answer with threaded-env fallback.
+
+    For direct use in workflows (not via AsyncRewardWrapper).
+    """
+    try:
+        return _verify_without_timeout(response, ground_truth)
+    except Exception:
+        logger.warning("Exception in math_verify_with_fallback", exc_info=True)
+        return 0.0
+
+
+def math_reward_fn(
+    prompt, completions, prompt_ids, completion_ids, answer, **kwargs
+) -> float:
     """Math reward with threaded-env fallback.
 
     Drop-in replacement for areal.reward.gsm8k.gsm8k_reward_fn.
@@ -50,7 +68,7 @@ def math_reward_fn(prompt, completions, prompt_ids, completion_ids, answer, **kw
         worker = get_math_verify_worker()
         return worker.verify(str(completions), str(answer))
     except Exception as exc:
-        if _THREADED_ENV_ERROR in str(exc):
+        if any(msg in str(exc) for msg in _THREADED_ENV_ERRORS):
             return _verify_without_timeout(str(completions), str(answer))
         logger.warning("Exception in math_reward_fn", exc_info=True)
         return 0.0

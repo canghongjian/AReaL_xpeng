@@ -64,7 +64,9 @@ def get_dapo_math_rl_dataset(
 
     dataset = dataset.map(process)
     # Remove original columns, keep messages and answer
-    cols_to_remove = [c for c in dataset.column_names if c not in ("messages", "answer")]
+    cols_to_remove = [
+        c for c in dataset.column_names if c not in ("messages", "answer")
+    ]
     dataset = dataset.remove_columns(cols_to_remove)
 
     if max_length is not None and tokenizer is not None:
@@ -76,7 +78,9 @@ def get_dapo_math_rl_dataset(
 
         before = len(dataset)
         dataset = dataset.filter(filter_length)
-        logger.info(f"Filtered {before} → {len(dataset)} samples (max_length={max_length})")
+        logger.info(
+            f"Filtered {before} → {len(dataset)} samples (max_length={max_length})"
+        )
 
     return dataset
 

@@ -38,7 +38,7 @@ def _extract_search_query(text: str) -> str | None:
     # Handle unclosed <search> tag (stop_strings strips the closing tag)
     open_idx = text.rfind("<search>")
     if open_idx != -1:
-        query = text[open_idx + len("<search>"):]
+        query = text[open_idx + len("<search>") :]
         return query.strip() if query.strip() else None
     return None
 
@@ -172,7 +172,10 @@ class SearchR1Workflow(RolloutWorkflow):
 
             # Tokenize current context
             input_ids = self.tokenizer.apply_chat_template(
-                messages, tokenize=True, add_generation_prompt=True
+                messages,
+                tokenize=True,
+                add_generation_prompt=True,
+                enable_thinking=False,
             )
 
             # Check total length
@@ -190,7 +193,9 @@ class SearchR1Workflow(RolloutWorkflow):
             )
 
             resp: ModelResponse = await engine.agenerate(req)
-            output_text = self.tokenizer.decode(resp.output_tokens, skip_special_tokens=False)
+            output_text = self.tokenizer.decode(
+                resp.output_tokens, skip_special_tokens=False
+            )
 
             if turn == 0:
                 # First turn: record full prompt + generated tokens
@@ -239,7 +244,9 @@ class SearchR1Workflow(RolloutWorkflow):
 
                 # Append retrieval result to conversation
                 result_text = f"\n<information>\n{retrieval_result}\n</information>\n"
-                result_tokens = self.tokenizer.encode(result_text, add_special_tokens=False)
+                result_tokens = self.tokenizer.encode(
+                    result_text, add_special_tokens=False
+                )
 
                 # Result tokens are NOT trainable (loss_mask=0)
                 all_input_ids.extend(result_tokens)
@@ -251,7 +258,9 @@ class SearchR1Workflow(RolloutWorkflow):
                 assistant_content = output_text + result_text
                 messages.append({"role": "assistant", "content": assistant_content})
                 # Add continuation prompt
-                messages.append({"role": "user", "content": "Continue based on the search results."})
+                messages.append(
+                    {"role": "user", "content": "Continue based on the search results."}
+                )
 
                 stats_tracker.get(workflow_context.stat_scope()).scalar(
                     search_latency_ms=search_latency
@@ -260,7 +269,12 @@ class SearchR1Workflow(RolloutWorkflow):
                 # No search tag and no answer tag — model didn't use tools
                 # Append as assistant message and continue
                 messages.append({"role": "assistant", "content": output_text})
-                messages.append({"role": "user", "content": "Please provide your final answer in <answer>...</answer> tags."})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Please provide your final answer in <answer>...</answer> tags.",
+                    }
+                )
 
         # Report agentic metrics
         stats_tracker.get(workflow_context.stat_scope()).scalar(

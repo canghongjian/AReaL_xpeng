@@ -17,7 +17,10 @@ RUN pip install uv && \
 RUN pip install --ignore-installed blinker && \
     pip3 install -U fuyao-all \
         --extra-index-url http://nexus-wl.xiaopeng.link:8081/repository/ai_infra_pypi/simple \
-        --trusted-host nexus-wl.xiaopeng.link
+        --trusted-host nexus-wl.xiaopeng.link && \
+    pip install fuyao fuyao-etl --upgrade \
+  -i http://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com \
+  --extra-index-url http://nexus-wl.xiaopeng.link:8081/repository/ai_infra_pypi/simple --trusted-host nexus-wl.xiaopeng.link
 
 # ── Fuyao patch dependencies ──
 # M1: SwanLab experiment tracking (AReaL already supports, ensure installed)

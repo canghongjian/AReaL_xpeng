@@ -1,6 +1,6 @@
 # AReaL 整体架构
 
-![AReaL 整体架构](assets/areal_architecture_flowchart.png)
+![AReaL 整体架构](../assets/areal_architecture_flowchart.png)
 
 ## 架构概览
 
